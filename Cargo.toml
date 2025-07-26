@@ -1,0 +1,22 @@
+[package]
+name = "xilem-chess"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+xilem   = { git = "https://github.com/linebender/xilem.git" }
+masonry = { git = "https://github.com/linebender/xilem.git" }
+masonry_winit = { git = "https://github.com/linebender/xilem.git" }
+winit = "*"
+
+mpsc = "*"
+num-traits = "*"
+tokio = "1.46.1"
+tracing = "0.1.41"
+
+[profile.dev]
+opt-level = 3
+
+[features]
+salewskiChessDebug = []
+
