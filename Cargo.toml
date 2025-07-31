@@ -1,12 +1,13 @@
 [package]
 name = "xilem-chess"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
-xilem   = { git = "https://github.com/linebender/xilem.git" }
-masonry = { git = "https://github.com/linebender/xilem.git" }
-masonry_winit = { git = "https://github.com/linebender/xilem.git" }
+xilem   = { git = "https://github.com/linebender/xilem.git", rev = "a1d677d9792c7372f7b24ff2ad88490b1f311235" }
+xilem_core = { git = "https://github.com/linebender/xilem.git", rev = "a1d677d9792c7372f7b24ff2ad88490b1f311235" }
+masonry = { git = "https://github.com/linebender/xilem.git", rev = "a1d677d9792c7372f7b24ff2ad88490b1f311235" }
+masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "a1d677d9792c7372f7b24ff2ad88490b1f311235" }
 winit = "*"
 
 mpsc = "*"

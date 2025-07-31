@@ -197,7 +197,7 @@ const _JUST_TEST: usize = if cfg!(feature = "salewskiChessDebug") {
 pub fn reset_game(g: &mut Game) {
     g.debug_list.clear();
     g.history.clear();
-    //g.board = SETUP;
+    g.board = SETUP;
     g.has_moved = BitSet::new();
     g.move_chain = [0; 64]; // which is better/faster?
     // g.move_chain.iter_mut().for_each(|m| *m = 0)
