@@ -113,7 +113,7 @@ RUST_LOG=debug cargo run
 ## 📄 License
 
 (C) 2015–2032 Dr. Stefan Salewski.
-MIT or Apache 2.0 (same as Rust ecosystem — to be confirmed).
+MIT or Apache 2.0 (same as Rust ecosystem).
 
 ---
 
