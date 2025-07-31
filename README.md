@@ -1,7 +1,7 @@
 # xilem-chess
 
 Xilem-based GUI for the Tiny Salewski Chess Engine
-![Chess UI](http://ssalewski.de/tmp/xilem-chess.png)
+![Chess UI](http://ssalewski.de/tmp/xilem-chess2.png)
 
 ## ✨ Overview
 
