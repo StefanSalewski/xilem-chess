@@ -1,5 +1,5 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.3 -- 31-JUL-2025
+// v0.3 -- 13-AUG-2025
 // (C) 2015 - 2032 Dr. Stefan Salewski
 
 use num_traits::clamp;
@@ -9,12 +9,12 @@ use std::{
     time::Duration,
 };
 
-use masonry::dpi::LogicalSize;
-//use masonry::widgets::CrossAxisAlignment;
+use masonry::{dpi::LogicalSize, parley::FontStack};
+use masonry::properties::types::{Length, AsUnit};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
-use xilem::view::CrossAxisAlignment;
+use xilem::{Blob, view::CrossAxisAlignment};
 use xilem::{
     Color, WidgetView, WindowOptions, Xilem,
     core::fork,
@@ -40,7 +40,7 @@ const STATE_ENGINE_PLAYING: i32 = 3;
 
 const BOOL_TO_ENGINE: [u8; 2] = [HUMAN, ENGINE];
 const BOOL_TO_STATE: [i32; 2] = [STATE_READY, STATE_ENGINE_THINKING];
-const GAP: f64 = 12.0;
+const GAP: Length = Length::const_px(12.);
 
 #[derive(Clone, Copy, Debug)]
 enum Piece {
@@ -106,7 +106,7 @@ fn piece_unicode(piece: ColoredPiece, solid: bool) -> &'static str {
         (Rook, Black) => "♜",
         (Bishop, Black) => "♝",
         (Knight, Black) => "♞",
-        (Pawn, Black) => "♟",
+        (Pawn, Black) => "♟︎",
     }
 }
 
@@ -165,7 +165,7 @@ fn time_control_slider(time: &mut f32) -> impl WidgetView<f32> + use<> {
 }
 
 fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    let label_bar = sized_box(label(&*state.msg)).height(32.0);
+    let label_bar = sized_box(label(&*state.msg)).height(32.px());
     let settings_panel = flex((
         FlexSpacer::Fixed(GAP),
         label_bar,
@@ -212,9 +212,9 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         for row in 0..8 {
             for col in 0..8 {
                 let (draw_row, draw_col) = if state.rotated {
-                    (row, 7 - col)
+                    (row, col)
                 } else {
-                    (7 - row, col)
+                    (7 - row, 7 - col)
                 };
                 let idx = row * 8 + col;
                 let shade = match state.tagged[idx] {
@@ -231,7 +231,8 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                     .map(|p| {
                         label(piece_unicode(p, state.use_solid_unicode))
                             .text_size(96.0)
-                            .text_color(Color::BLACK)
+                            .color(Color::BLACK)
+                            .font(FontStack::Source("Noto Sans Symbols 2".into()))
                     })
                     .unwrap_or_else(|| label(" ").text_size(96.0));
                 let cell = sized_box(
@@ -385,6 +386,12 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     )
 }
 
+const NOTO_SANS_SYMBOLS: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/resources/fonts/noto_sans_symbols_2/",
+    "NotoSansSymbols2-Regular.ttf"
+));
+
 fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
     let app = Xilem::new_simple(
         AppState::default(),
@@ -392,7 +399,8 @@ fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
         WindowOptions::new("Xilem Chess GUI")
             .with_min_inner_size(LogicalSize::new(800.0, 800.0))
             .with_initial_inner_size(LogicalSize::new(1200.0, 1000.0)),
-    );
+    )
+    .with_font(Blob::new(Arc::new(NOTO_SANS_SYMBOLS)));
     app.run_in(event_loop)
 }
 

@@ -1,47 +1,51 @@
 # xilem-chess
 
-Xilem-based GUI for the Tiny Salewski Chess Engine
-![Chess UI](http://ssalewski.de/tmp/xilem-chess2.png)
+A chess interface powered by the Xilem GUI framework for the lightweight Salewski Chess Engine.
+![Chess UI](http://ssalewski.de/tmp/xilem-chess3.png)
 
 ## ✨ Overview
 
-`xilem-chess` is a graphical user interface for the compact [Salewski chess engine](https://ssalewski.de/), built with [Xilem](https://github.com/linebender/xilem) — a declarative Rust GUI framework. It demonstrates a clean and interactive chess UI while integrating real-time engine responses using multi-threading and channels.
+`xilem-chess` is a Rust-based chess GUI built with [Xilem](https://github.com/linebender/xilem), a declarative UI toolkit.
+It connects to the compact “Salewski chess engine” and displays a clean, responsive chessboard with live engine moves handled through multi-threading and message passing.
 
-This project showcases:
+**Key highlights:**
 
-* A full chess GUI with Unicode piece rendering
-* Player vs Engine and Engine vs Engine play modes
-* Responsive board layout with adjustable engine move time
-* Highlighted move suggestions and last-move tracking
-* Threaded engine communication using Rust’s `mpsc` channels
-
-## 🚀 Features
-
-* ✅ Fully playable chess interface
-* ✅ Configurable time-per-move for engine
-* ✅ Rotate board view
-* ✅ Print move list to console
-* ✅ Toggle engine control for each color
-* ✅ Optional solid-colored Unicode pieces
-* ✅ Responsive layout built with Xilem flex/grid
-* ⚠️ No drag-and-drop (yet), only click-based input
-* ⚠️ No game state persistence or PGN export
-* ❌ Dynamic window title and scaling not yet supported by Xilem
+* Unicode chess piece rendering
+* Play modes for Player vs Engine and Engine vs Engine
+* Adjustable engine move timing
+* Move highlighting for suggestions and last moves
+* Thread-safe engine communication via Rust’s `mpsc` channels
 
 ---
 
-## 📦 Dependencies
+## 🚀 Features
+
+* ✅ Fully interactive chessboard
+* ✅ Customizable seconds-per-move for the engine
+* ✅ Board rotation toggle
+* ✅ Move list output to the terminal
+* ✅ Independent engine control for each color
+* ✅ Responsive board built with Xilem’s flex/grid system
+* ⚠️ Only click-to-move input (no drag-and-drop yet)
+* ⚠️ No save/load or PGN export functionality
+* ❌ Dynamic scaling and window title updates are not yet supported by Xilem
+
+---
+
+## 📦 Requirements
 
 * Rust 1.78+ (2024 edition)
-* [Xilem](https://github.com/linebender/xilem) (latest Git version)
-* [masonry](https://github.com/linebender/xilem/tree/main/masonry) for layout and widgets
-* `tokio`, `num-traits`, and `winit` for concurrency and platform support
+* [Xilem](https://github.com/linebender/xilem) (latest Git commit)
+* [masonry](https://github.com/linebender/xilem/tree/main/masonry) for layout
+* `tokio`, `num-traits`, `winit` for async and platform integration
+
+Chess pieces are drawn using Unicode symbols. Most systems already have suitable fonts, but the Google font **Noto Sans Symbols** is bundled and used by default (under Google’s copyright). A future update may allow switching to system fonts.
+
+Because Xilem evolves quickly, the project is pinned to the latest verified Git revision. Both `Cargo.lock` and revision tags in `Cargo.toml` are provided.
 
 ---
 
 ## 🔧 Build & Run
-
-Clone and run with Cargo:
 
 ```bash
 git clone https://github.com/stefansalewski/xilem-chess.git
@@ -49,60 +53,57 @@ cd xilem-chess
 RUST_LOG=off cargo run
 ```
 
-You’ll see a playable chessboard with control options on the left.
+When launched, the left panel provides game controls; the right displays the interactive board.
 
 ---
 
 ## 🕹️ Controls
 
-| Control                | Description                            |
-| ---------------------- | -------------------------------------- |
-| **Engine plays White** | Toggle engine control for white pieces |
-| **Engine plays Black** | Toggle engine control for black pieces |
-| **Rotate**             | Flip board orientation                 |
-| **New game**           | Restart from initial position          |
-| **Print movelist**     | Log move history to terminal           |
-| **Sec/move**           | Adjust engine thinking time            |
+| Control                | Action                                        |
+| ---------------------- | --------------------------------------------- |
+| **Engine plays White** | Enable/disable engine control of white pieces |
+| **Engine plays Black** | Enable/disable engine control of black pieces |
+| **Rotate**             | Flip the board’s orientation                  |
+| **New game**           | Reset to starting position                    |
+| **Print movelist**     | Output move history to terminal               |
+| **Sec/move**           | Adjust engine’s thinking time per move        |
 
-Moves are made by clicking one square, then the destination square.
-
----
-
-## 🧠 Architecture
-
-The core structure uses:
-
-* `AppState`: holds game state, settings, and board UI data
-* `engine::Game`: encapsulates the chess logic and rules
-* A message loop via `task(...)` + `mpsc::Receiver<Move>` for threaded engine replies
-* `engine_to_board(...)`: converts internal engine board to a UI-friendly 2D array
-* Xilem widgets (`grid`, `button`, `checkbox`, `label`, etc.) for layout
+Moves are made by clicking a piece’s square, then its destination square.
 
 ---
 
-## 📱 Platform Support
+## 🧠 Internal Design
 
-Tested on:
+* **`AppState`** — manages the board, settings, and UI state
+* **`engine::Game`** — contains chess rules and logic
+* **Threaded messaging** — `task(...)` with `mpsc::Receiver<Move>` for engine responses
+* **`engine_to_board(...)`** — converts engine’s internal state to UI data structures
+* **UI layout** — composed using Xilem’s `grid`, `button`, `checkbox`, `label`, etc.
+
+---
+
+## 📱 Platform Compatibility
 
 * ✅ Linux (X11 and Wayland)
-* ✅ Windows (expected to work)
-* ⚠️ macOS (untested, but should work)
-* ⚠️ Android (via `android_main`, experimental)
+* ✅ Windows (expected to run without issues)
+* ⚠️ macOS (not tested, should work)
+* ⚠️ Android (`android_main`, experimental)
 
 ---
 
-## ❗ Limitations
+## ❗ Known Gaps
 
-* Xilem does not yet support dynamic scaling of widgets or dynamic window titles
-* Promotion, PGN import/export, and drag-drop interactions are not yet implemented
+* No dynamic widget scaling or runtime window title changes
+* Missing promotion UI, PGN handling, and drag-and-drop support
 
 ---
 
-## 🧪 Development Notes
+## 🧪 Developer Notes
 
-This project was inspired by the Xilem examples `stopwatch.rs` and `calc.rs`, and the earlier `tiny-chess` version using egui. This version focuses on clean separation of UI state and engine logic.
+This UI was inspired by the `stopwatch.rs` and `calc.rs` examples from Xilem, as well as the previous egui-based `tiny-chess`.
+The focus is on keeping engine logic separate from UI state for maintainability.
 
-Use the following to experiment or debug:
+Debug mode:
 
 ```bash
 RUST_LOG=debug cargo run
@@ -110,11 +111,23 @@ RUST_LOG=debug cargo run
 
 ---
 
-## 📄 License
+## 🔄 Alternative Interfaces
 
-(C) 2015–2032 Dr. Stefan Salewski.
-MIT or Apache 2.0 (same as Rust ecosystem).
+The same engine code can be used with:
+
+* **Egui UI** — [https://github.com/StefanSalewski/tiny-chess](https://github.com/StefanSalewski/tiny-chess)
+* **3D Bevy UI** — [https://github.com/StefanSalewski/Bevy-3D-Chess](https://github.com/StefanSalewski/Bevy-3D-Chess) (updated for Bevy 0.16.1, release coming soon)
+
+Older Nim, GTK, and blocking egui versions are now deprecated and will be removed.
 
 ---
 
+## 📄 License
+
+Copyright © 2015–2032 Dr. Stefan Salewski
+Licensed under MIT or Apache 2.0 (same as Rust).
+
+Bundled font: [Noto Sans Symbols 2](https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2) — see [Google’s license](https://fonts.google.com/noto/specimen/Noto+Sans+Symbols+2/license) for details.
+
+---
 
