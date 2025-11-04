@@ -4,10 +4,10 @@ version = "0.3.0"
 edition = "2024"
 
 [dependencies]
-xilem   = { git = "https://github.com/linebender/xilem.git", rev = "ac10aeb47e0ec2d9a89bcb72679d3c3445d3e4a9" }
-xilem_core = { git = "https://github.com/linebender/xilem.git", rev = "ac10aeb47e0ec2d9a89bcb72679d3c3445d3e4a9" }
-masonry = { git = "https://github.com/linebender/xilem.git", rev = "ac10aeb47e0ec2d9a89bcb72679d3c3445d3e4a9" }
-masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "ac10aeb47e0ec2d9a89bcb72679d3c3445d3e4a9" }
+xilem = "0.4"
+xilem_core = "0.4"
+masonry = "0.4"
+masonry_winit = "0.4"
 winit = "*"
 
 mpsc = "*"
@@ -20,4 +20,3 @@ opt-level = 3
 
 [features]
 salewskiChessDebug = []
-

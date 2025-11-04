@@ -9,19 +9,22 @@ use std::{
     time::Duration,
 };
 
+use masonry::properties::types::{AsUnit, Length};
 use masonry::{dpi::LogicalSize, parley::FontStack};
-use masonry::properties::types::{Length, AsUnit};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
-use xilem::{Blob, view::CrossAxisAlignment};
+use xilem::{
+    Blob,
+    style::Padding,
+    view::{CrossAxisAlignment, flex_col, text_button},
+};
 use xilem::{
     Color, WidgetView, WindowOptions, Xilem,
     core::fork,
     style::Style,
     view::{
-        FlexExt, FlexSpacer, GridExt, button, checkbox, flex, flex_row, grid, label, sized_box,
-        task,
+        FlexExt, FlexSpacer, GridExt, button, checkbox, flex_row, grid, label, sized_box, task,
     },
 };
 use xilem_core::lens;
@@ -155,18 +158,18 @@ impl Default for AppState {
 }
 
 fn time_control_slider(time: &mut f32) -> impl WidgetView<f32> + use<> {
-    flex((
+    flex_col((
         label(format!("{:.2} Sec/move", time)),
         flex_row((
-            button("+", |t| *t = clamp(*t + 0.1, 0.1, 5.0)),
-            button("-", |t| *t = clamp(*t - 0.1, 0.1, 5.0)),
+            text_button("+", |t| *t = clamp(*t + 0.1, 0.1, 5.0)),
+            text_button("-", |t| *t = clamp(*t - 0.1, 0.1, 5.0)),
         )),
     ))
 }
 
 fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let label_bar = sized_box(label(&*state.msg)).height(32.px());
-    let settings_panel = flex((
+    let settings_panel = flex_col((
         FlexSpacer::Fixed(GAP),
         label_bar,
         lens(time_control_slider, |s: &mut AppState| &mut s.time_per_move),
@@ -188,8 +191,8 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 s.state = STATE_UZ;
             },
         ),
-        button("Rotate", |s: &mut AppState| s.rotated ^= true),
-        button("New game", |s: &mut AppState| {
+        text_button("Rotate", |s: &mut AppState| s.rotated ^= true),
+        text_button("New game", |s: &mut AppState| {
             if let Ok(mut game) = s.game.lock() {
                 engine::reset_game(&mut game);
                 s.board = engine_to_board(engine::get_board(&game));
@@ -197,7 +200,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 s.state = STATE_UZ;
             }
         }),
-        button("Print movelist", |s: &mut AppState| {
+        text_button("Print movelist", |s: &mut AppState| {
             if let Ok(game) = s.game.lock() {
                 engine::print_move_list(&game);
             }
@@ -230,11 +233,11 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 let label_piece = state.board[row][col]
                     .map(|p| {
                         label(piece_unicode(p, state.use_solid_unicode))
+                            .font(FontStack::Source("Noto Sans Symbols 2".into()))
                             .text_size(96.0)
                             .color(Color::BLACK)
-                            .font(FontStack::Source("Noto Sans Symbols 2".into()))
                     })
-                    .unwrap_or_else(|| label(" ").text_size(96.0));
+                    .unwrap_or_else(|| label(" ").text_size(96.0).color(Color::BLACK));
                 let cell = sized_box(
                     button(label_piece, move |s: &mut AppState| {
                         let clicked = (row, col);
@@ -264,6 +267,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                             }
                         }
                     })
+                    .padding(Padding::all(0.0))
                     .background_color(color)
                     .corner_radius(0.0),
                 )
@@ -278,7 +282,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let full_layout = flex_row((
         FlexSpacer::Fixed(GAP),
         settings_panel,
-        flex((
+        flex_col((
             FlexSpacer::Fixed(GAP),
             board_grid.flex(1.0),
             FlexSpacer::Fixed(GAP),
