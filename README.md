@@ -24,7 +24,6 @@ It connects to the compact “Salewski chess engine” and displays a clean, res
 * ✅ Customizable seconds-per-move for the engine
 * ✅ Board rotation toggle
 * ✅ Move list output to the terminal
-* ✅ Independent engine control for each color
 * ✅ Responsive board built with Xilem’s flex/grid system
 * ⚠️ Only click-to-move input (no drag-and-drop yet)
 * ⚠️ No save/load or PGN export functionality
@@ -35,13 +34,11 @@ It connects to the compact “Salewski chess engine” and displays a clean, res
 ## 📦 Requirements
 
 * Rust 1.78+ (2024 edition)
-* [Xilem](https://github.com/linebender/xilem) (latest Git commit)
+* [Xilem](https://github.com/linebender/xilem) (v. 0.4)
 * [masonry](https://github.com/linebender/xilem/tree/main/masonry) for layout
 * `tokio`, `num-traits`, `winit` for async and platform integration
 
 Chess pieces are drawn using Unicode symbols. Most systems already have suitable fonts, but the Google font **Noto Sans Symbols** is bundled and used by default (under Google’s copyright). A future update may allow switching to system fonts.
-
-Because Xilem evolves quickly, the project is pinned to the latest verified Git revision. Both `Cargo.lock` and revision tags in `Cargo.toml` are provided.
 
 ---
 

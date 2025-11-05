@@ -1,5 +1,5 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.3 -- 13-AUG-2025
+// v0.4 -- 05-NOV-2025
 // (C) 2015 - 2032 Dr. Stefan Salewski
 
 use num_traits::clamp;
@@ -9,19 +9,20 @@ use std::{
     time::Duration,
 };
 
+use masonry::properties::types::{AsUnit, Length};
 use masonry::{dpi::LogicalSize, parley::FontStack};
-use masonry::properties::types::{Length, AsUnit};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
-use xilem::{Blob, view::CrossAxisAlignment};
+use xilem::{Blob, TextAlign, view::CrossAxisAlignment};
 use xilem::{
     Color, WidgetView, WindowOptions, Xilem,
     core::fork,
+    palette,
     style::Style,
     view::{
-        FlexExt, FlexSpacer, GridExt, button, checkbox, flex, flex_row, grid, label, sized_box,
-        task,
+        FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, sized_box,
+        slider, task, text_button,
     },
 };
 use xilem_core::lens;
@@ -124,7 +125,7 @@ struct AppState {
     use_solid_unicode: bool,
     rotated: bool,
     active: bool,
-    time_per_move: f32,
+    time_per_move: f64,
     p0: i32,
     p1: i32,
 }
@@ -154,22 +155,31 @@ impl Default for AppState {
     }
 }
 
-fn time_control_slider(time: &mut f32) -> impl WidgetView<f32> + use<> {
-    flex((
+fn time_control_slider(time: &mut f64) -> impl WidgetView<f64> + use<> {
+    flex_col((
         label(format!("{:.2} Sec/move", time)),
         flex_row((
-            button("+", |t| *t = clamp(*t + 0.1, 0.1, 5.0)),
-            button("-", |t| *t = clamp(*t - 0.1, 0.1, 5.0)),
+            text_button("+", |t| *t = clamp(*t + 0.1, 0.1, 5.0)),
+            text_button("-", |t| *t = clamp(*t - 0.1, 0.1, 5.0)),
         )),
     ))
 }
 
 fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let label_bar = sized_box(label(&*state.msg)).height(32.px());
-    let settings_panel = flex((
+    let settings_panel = flex_col((
         FlexSpacer::Fixed(GAP),
         label_bar,
-        lens(time_control_slider, |s: &mut AppState| &mut s.time_per_move),
+        //lens(time_control_slider, |s: &mut AppState| &mut s.time_per_move),
+        label(format!("{:.2} Sec/move", state.time_per_move)),
+        slider(
+            0.1,
+            5.0,
+            state.time_per_move,
+            |state: &mut AppState, val| {
+                state.time_per_move = val;
+            },
+        ),
         checkbox(
             "Engine plays white",
             state.engine_plays_white,
@@ -188,8 +198,8 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 s.state = STATE_UZ;
             },
         ),
-        button("Rotate", |s: &mut AppState| s.rotated ^= true),
-        button("New game", |s: &mut AppState| {
+        text_button("Rotate", |s: &mut AppState| s.rotated ^= true),
+        text_button("New game", |s: &mut AppState| {
             if let Ok(mut game) = s.game.lock() {
                 engine::reset_game(&mut game);
                 s.board = engine_to_board(engine::get_board(&game));
@@ -197,7 +207,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 s.state = STATE_UZ;
             }
         }),
-        button("Print movelist", |s: &mut AppState| {
+        text_button("Print movelist", |s: &mut AppState| {
             if let Ok(game) = s.game.lock() {
                 engine::print_move_list(&game);
             }
@@ -230,11 +240,14 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 let label_piece = state.board[row][col]
                     .map(|p| {
                         label(piece_unicode(p, state.use_solid_unicode))
+                            .text_alignment(TextAlign::Center)
                             .text_size(96.0)
-                            .color(Color::BLACK)
+                            //.color(palette::css::MEDIUM_VIOLET_RED)
                             .font(FontStack::Source("Noto Sans Symbols 2".into()))
+                            .color(Color::BLACK)
                     })
-                    .unwrap_or_else(|| label(" ").text_size(96.0));
+                    .unwrap_or_else(|| label(" ").text_size(96.0).color(Color::BLACK));
+
                 let cell = sized_box(
                     button(label_piece, move |s: &mut AppState| {
                         let clicked = (row, col);
@@ -278,7 +291,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let full_layout = flex_row((
         FlexSpacer::Fixed(GAP),
         settings_panel,
-        flex((
+        flex_col((
             FlexSpacer::Fixed(GAP),
             board_grid.flex(1.0),
             FlexSpacer::Fixed(GAP),
@@ -331,7 +344,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                         STATE_ENGINE_THINKING => {
                             s.state = STATE_ENGINE_PLAYING;
                             if let Ok(mut game) = s.game.try_lock() {
-                                game.secs_per_move = s.time_per_move;
+                                game.secs_per_move = s.time_per_move as f32;
                             }
                             let (tx, rx) = mpsc::channel();
                             s.rx = Some(rx);
