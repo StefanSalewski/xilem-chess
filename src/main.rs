@@ -247,6 +247,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                             .color(Color::BLACK)
                     })
                     .unwrap_or_else(|| label(" ").text_size(96.0).color(Color::BLACK));
+
                 let label_piece = sized_box(label_piece).height(Length::px(90.));
                 let cell = sized_box(
                     button(label_piece, move |s: &mut AppState| {
