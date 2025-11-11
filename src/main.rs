@@ -9,23 +9,23 @@ use std::{
     time::Duration,
 };
 
-use masonry::properties::types::{AsUnit, Length};
-use masonry::{dpi::LogicalSize, parley::FontStack};
-use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
-use winit::error::EventLoopError;
-use xilem::{Blob, TextAlign, view::CrossAxisAlignment};
 use xilem::{
-    Color, WidgetView, WindowOptions, Xilem,
+    Blob, Color, EventLoop, EventLoopBuilder, TextAlign, WidgetView, WindowOptions, Xilem,
     core::fork,
-    palette,
+    dpi::LogicalSize,
+    masonry::{
+        parley::FontStack,
+        properties::types::{AsUnit, Length},
+    },
     style::Style,
+    view::CrossAxisAlignment,
     view::{
         FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, sized_box,
         slider, task, text_button,
     },
+    winit::error::EventLoopError,
 };
-use xilem_core::lens;
 
 mod engine;
 
