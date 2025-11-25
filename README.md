@@ -1,7 +1,7 @@
 # xilem-chess
 
 A chess interface powered by the Xilem GUI framework for the lightweight Salewski Chess Engine.
-![Chess UI](http://ssalewski.de/tmp/xilem-chess3.png)
+![Chess UI](xilem-chess.png)
 
 ## ✨ Overview
 
@@ -14,6 +14,8 @@ It connects to the compact “Salewski chess engine” and displays a clean, res
 * Play modes for Player vs Engine and Engine vs Engine
 * Adjustable engine move timing
 * Move highlighting for suggestions and last moves
+* A simple (inacurate) chess clock
+* Display of movelist, and option to print the list in the terminal
 * Thread-safe engine communication via Rust’s `mpsc` channels
 
 ---
@@ -34,7 +36,7 @@ It connects to the compact “Salewski chess engine” and displays a clean, res
 ## 📦 Requirements
 
 * Rust 1.78+ (2024 edition)
-* [Xilem](https://github.com/linebender/xilem) (v. 0.4)
+* [Xilem](https://github.com/linebender/xilem) (latest from GitHub)
 * [masonry](https://github.com/linebender/xilem/tree/main/masonry) for layout
 * `tokio`, `num-traits`, `winit` for async and platform integration
 
@@ -113,7 +115,7 @@ RUST_LOG=debug cargo run
 The same engine code can be used with:
 
 * **Egui UI** — [https://github.com/StefanSalewski/tiny-chess](https://github.com/StefanSalewski/tiny-chess)
-* **3D Bevy UI** — [https://github.com/StefanSalewski/Bevy-3D-Chess](https://github.com/StefanSalewski/Bevy-3D-Chess) (updated for Bevy 0.16.1, release coming soon)
+* **3D Bevy UI** — [https://github.com/StefanSalewski/Bevy-3D-Chess](https://github.com/StefanSalewski/Bevy-3D-Chess)
 
 Older Nim, GTK, and blocking egui versions are now deprecated and will be removed.
 

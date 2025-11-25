@@ -1,47 +1,38 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.4 -- 05-NOV-2025
-// (C) 2015 - 2032 Dr. Stefan Salewski
+// v0.5 -- 25-NOV-2025
+// (C) 2015 - 2032 Dr. Stefan Salweski
 
-use num_traits::clamp;
 use std::{
-    sync::{Arc, Mutex, mpsc},
+    sync::{mpsc, Arc, Mutex},
     thread,
     time::Duration,
 };
 
-use masonry::properties::types::{AsUnit, Length};
+use masonry::properties::types::AsUnit;
+use masonry::properties::types::Length;
 use masonry::{dpi::LogicalSize, parley::FontStack};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
-use xilem::{Blob, TextAlign, view::CrossAxisAlignment};
+use xilem::view::CrossAxisAlignment;
 use xilem::{
-    Color, WidgetView, WindowOptions, Xilem,
     core::fork,
-    palette,
-    style::Style,
     view::{
-        FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, sized_box,
-        slider, task, text_button,
+        button, checkbox, flex_col, flex_row, grid, label, prose, sized_box, slider, task,
+        text_button, FlexExt, FlexSpacer, GridExt,
     },
+    Blob, Color, WidgetView, WindowOptions, Xilem,
 };
-use xilem_core::lens;
+use xilem_core::Edit;
+use xilem::style::Style;
 
 mod engine;
 
-const HUMAN: u8 = 0;
-const ENGINE: u8 = 1;
-
-const STATE_UZ: i32 = -2;
-const STATE_UX: i32 = -1;
-const STATE_READY: i32 = 0;
-const STATE_MOVE_ATTEMPT: i32 = 1;
-const STATE_ENGINE_THINKING: i32 = 2;
-const STATE_ENGINE_PLAYING: i32 = 3;
-
-const BOOL_TO_ENGINE: [u8; 2] = [HUMAN, ENGINE];
-const BOOL_TO_STATE: [i32; 2] = [STATE_READY, STATE_ENGINE_THINKING];
-const GAP: Length = Length::const_px(12.);
+const TIMER_TICK_MS: u64 = 100;
+const TIMER_TICK_SECS: f64 = TIMER_TICK_MS as f64 / 1000.0;
+const BOARD_SIZE: usize = 8;
+const GAP: Length = Length::const_px(12.0);
+const TINY_GAP: Length = Length::const_px(4.0);
 
 #[derive(Clone, Copy, Debug)]
 enum Piece {
@@ -53,8 +44,8 @@ enum Piece {
     King,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum ColorSide {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Side {
     White,
     Black,
 }
@@ -62,15 +53,44 @@ enum ColorSide {
 #[derive(Clone, Copy, Debug)]
 struct ColoredPiece {
     piece: Piece,
-    color: ColorSide,
+    side: Side,
 }
 
-fn engine_to_board(engine_board: engine::Board) -> [[Option<ColoredPiece>; 8]; 8] {
-    use ColorSide::{Black, White};
+type BoardView = [[Option<ColoredPiece>; BOARD_SIZE]; BOARD_SIZE];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PlayerKind {
+    Human,
+    Engine,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Phase {
+    /// Waiting to decide whose turn it is next.
+    Uninitialized,
+    /// Game is over; input is effectively disabled.
+    Inactive,
+    /// Human can select a piece to move.
+    Ready,
+    /// Human clicked a destination square; apply the move.
+    MoveAttempt,
+    /// Engine is thinking in the background.
+    EngineThinking,
+    /// Engine move has been produced; apply it.
+    EnginePlaying,
+}
+
+/// Map a "engine plays this side" boolean to a PlayerKind.
+const PLAYER_FOR_ENGINE_FLAG: [PlayerKind; 2] = [PlayerKind::Human, PlayerKind::Engine];
+
+fn engine_to_board(engine_board: engine::Board) -> BoardView {
     use Piece::*;
-    let mut board = [[None; 8]; 8];
+    use Side::{Black, White};
+
+    let mut board = [[None; BOARD_SIZE]; BOARD_SIZE];
+
     for (i, &val) in engine_board.iter().enumerate() {
-        let piece_color = match val {
+        let piece_side = match val {
             1 => Some((Pawn, White)),
             2 => Some((Knight, White)),
             3 => Some((Bishop, White)),
@@ -85,17 +105,21 @@ fn engine_to_board(engine_board: engine::Board) -> [[Option<ColoredPiece>; 8]; 8
             -6 => Some((King, Black)),
             _ => None,
         };
-        if let Some((piece, color)) = piece_color {
-            board[i / 8][i % 8] = Some(ColoredPiece { piece, color });
+        if let Some((piece, side)) = piece_side {
+            board[i / BOARD_SIZE][i % BOARD_SIZE] = Some(ColoredPiece { piece, side });
         }
     }
     board
 }
 
 fn piece_unicode(piece: ColoredPiece, solid: bool) -> &'static str {
-    use ColorSide::{Black, White};
     use Piece::*;
-    match (piece.piece, if solid { Black } else { piece.color }) {
+    use Side::{Black, White};
+
+    // When `solid` is true, always draw the black glyph.
+    let effective_side = if solid { Black } else { piece.side };
+
+    match (piece.piece, effective_side) {
         (King, White) => "♔",
         (Queen, White) => "♕",
         (Rook, White) => "♖",
@@ -112,66 +136,308 @@ fn piece_unicode(piece: ColoredPiece, solid: bool) -> &'static str {
 }
 
 struct AppState {
+    /// Current engine game state.
     game: Arc<Mutex<engine::Game>>,
+    /// Receiver for the background engine thread replying with a move.
     rx: Option<mpsc::Receiver<engine::Move>>,
-    board: [[Option<ColoredPiece>; 8]; 8],
+    /// View of the board as Unicode pieces; derived from `game`.
+    board: BoardView,
+    /// Currently selected square (for human moves).
     selected: Option<(usize, usize)>,
-    tagged: engine::Board,
-    state: i32,
-    msg: String,
-    players: [u8; 2],
+    /// Per-square tags for highlighting last move, possible moves, etc.
+    square_tags: engine::Board,
+    /// High-level application phase (whose turn, what we're waiting for).
+    phase: Phase,
+    /// Status line below controls.
+    status: String,
+    /// Player on each side (0 = white, 1 = black).
+    players: [PlayerKind; 2],
+    /// UI flags for checkboxes.
     engine_plays_white: bool,
     engine_plays_black: bool,
+    /// If true, use "solid" Unicode pieces (always black glyphs).
     use_solid_unicode: bool,
+    /// If true, draw board from white's perspective; otherwise black's.
     rotated: bool,
+    /// If false, the periodic task isn't scheduled.
     active: bool,
+    /// Time per engine move (seconds).
     time_per_move: f64,
-    p0: i32,
-    p1: i32,
+    /// Accumulated clock time in seconds for [white, black].
+    time_elapsed: [f64; 2],
+    /// Current side to move (0 = white, 1 = black).
+    turn: usize,
+    /// Pending human move as linear indices (from, to), if any.
+    pending_move: Option<(usize, usize)>,
+    /// Move list in text form.
+    movelist: Vec<String>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         let game = engine::new_game();
         let board = engine_to_board(engine::get_board(&game));
+
         Self {
             game: Arc::new(Mutex::new(game)),
             rx: None,
             board,
             selected: None,
-            tagged: [0; 64],
-            state: STATE_UZ,
-            msg: "Tiny chess".into(),
-            players: [HUMAN, ENGINE],
+            square_tags: [0; 64],
+            phase: Phase::Uninitialized,
+            status: "Tiny chess".into(),
+            players: [PlayerKind::Human, PlayerKind::Engine],
             engine_plays_white: false,
             engine_plays_black: true,
             use_solid_unicode: false,
             rotated: false,
             active: true,
             time_per_move: 1.5,
-            p0: -1,
-            p1: -1,
+            time_elapsed: [0.0, 0.0],
+            turn: 0,
+            pending_move: None,
+            movelist: Vec::new(),
         }
     }
 }
 
-fn time_control_slider(time: &mut f64) -> impl WidgetView<f64> + use<> {
-    flex_col((
-        label(format!("{:.2} Sec/move", time)),
-        flex_row((
-            text_button("+", |t| *t = clamp(*t + 0.1, 0.1, 5.0)),
-            text_button("-", |t| *t = clamp(*t - 0.1, 0.1, 5.0)),
-        )),
-    ))
+impl AppState {
+    fn formatted_clock(secs: f64) -> String {
+        // Simple "MM:SS" display
+        let total = secs.round() as u64;
+        let minutes = total / 60;
+        let seconds = total % 60;
+        format!("{minutes:02}:{seconds:02}")
+    }
+
+    fn movelist_text(&self) -> String {
+        self.movelist
+            .chunks(2)
+            .enumerate()
+            .map(|(idx, chunk)| match chunk {
+                [a, b] => format!("{:>3}. {:>7}  {}", idx + 1, a, b),
+                [a] => format!("{:>3}. {:>7}", idx + 1, a),
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Called periodically by the Xilem `task` to advance the game / UI state.
+    fn tick(&mut self) {
+        // Only advance clocks during active phases.
+        if matches!(
+            self.phase,
+            Phase::Ready | Phase::MoveAttempt | Phase::EngineThinking | Phase::EnginePlaying
+        ) {
+            self.time_elapsed[self.turn] += TIMER_TICK_SECS;
+        }
+
+        // Periodically sync our board view from the engine state.
+        if let Ok(game) = self.game.try_lock() {
+            self.board = engine_to_board(engine::get_board(&game));
+        }
+
+        match self.phase {
+            Phase::Uninitialized => {
+                if let Ok(game) = self.game.lock() {
+                    let turn = game.move_counter as usize % 2;
+                    self.turn = turn;
+                    let player = self.players[turn];
+                    self.phase = match player {
+                        PlayerKind::Human => Phase::Ready,
+                        PlayerKind::Engine => Phase::EngineThinking,
+                    };
+                }
+            }
+            Phase::MoveAttempt => {
+                if let Some((from_idx, to_idx)) = self.pending_move.take() {
+                    let from = from_idx as i8;
+                    let to = to_idx as i8;
+
+                    let mut game = self.game.lock().unwrap();
+
+                    let valid = engine::move_is_valid2(&mut game, from as i64, to as i64);
+
+                    self.square_tags = [0; 64];
+
+                    if from_idx == to_idx || !valid {
+                        self.status = "Invalid move.".into();
+                    } else {
+                        let flag = engine::do_move(&mut game, from, to, false);
+                        let notation = engine::move_to_str(&game, from, to, flag);
+                        self.movelist.push(notation.clone());
+                        self.status = notation;
+                        self.square_tags[from_idx] = 2;
+                        self.square_tags[to_idx] = 2;
+                    }
+                }
+                self.phase = Phase::Uninitialized;
+            }
+            Phase::EngineThinking => {
+                // Switch to "playing" and start a background thread to compute a move.
+                self.phase = Phase::EnginePlaying;
+
+                if let Ok(mut game) = self.game.try_lock() {
+                    game.secs_per_move = self.time_per_move as f32;
+                }
+
+                let (tx, rx) = mpsc::channel();
+                self.rx = Some(rx);
+                let game_clone = Arc::clone(&self.game);
+
+                thread::spawn(move || {
+                    let chess_move = engine::reply(&mut game_clone.lock().unwrap());
+                    let _ = tx.send(chess_move);
+                });
+            }
+            Phase::EnginePlaying => {
+                if let Some(rx) = &self.rx {
+                    if let Ok(mv) = rx.try_recv() {
+                        let mut game = self.game.lock().unwrap();
+
+                        self.square_tags = [0; 64];
+                        self.square_tags[mv.src as usize] = 2;
+                        self.square_tags[mv.dst as usize] = 2;
+
+                        let flag =
+                            engine::do_move(&mut game, mv.src as i8, mv.dst as i8, false);
+                        let notation = engine::move_to_str(
+                            &game,
+                            mv.src as i8,
+                            mv.dst as i8,
+                            flag,
+                        );
+
+                        self.movelist.push(notation.clone());
+                        self.status = format!("{notation} (scr: {})", mv.score);
+
+                        self.rx = None;
+                        self.phase = match mv.state {
+                            engine::STATE_CHECKMATE => {
+                                self.status =
+                                    "Checkmate, game terminated!".into();
+                                Phase::Inactive
+                            }
+                            _ if mv.score.abs()
+                                > engine::KING_VALUE_DIV_2 as i64 =>
+                            {
+                                let turns = mv.checkmate_in / 2
+                                    + if mv.score > 0 { -1 } else { 1 };
+                                self.status
+                                    .push_str(&format!(" Checkmate in {}", turns));
+                                Phase::Uninitialized
+                            }
+                            _ => Phase::Uninitialized,
+                        };
+                    }
+                }
+            }
+            // Ready / Inactive and any other phases: nothing special on tick.
+            _ => {}
+        }
+    }
 }
 
-fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    let label_bar = sized_box(label(&*state.msg)).height(32.px());
-    let settings_panel = flex_col((
+fn board_grid(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+    let mut cells = Vec::with_capacity(BOARD_SIZE * BOARD_SIZE);
+
+    for row in 0..BOARD_SIZE {
+        for col in 0..BOARD_SIZE {
+            let idx = row * BOARD_SIZE + col;
+
+            let (draw_row, draw_col) = if state.rotated {
+                (row, col)
+            } else {
+                (BOARD_SIZE - 1 - row, BOARD_SIZE - 1 - col)
+            };
+
+            let shade = match state.square_tags[idx] {
+                2 => 25,
+                1 => 50,
+                _ => 0,
+            };
+
+            let color = if (row + col) % 2 == 0 {
+                Color::from_rgb8(255, 255, 255 - shade)
+            } else {
+                Color::from_rgb8(205, 205, 205 - shade)
+            };
+
+            let label_text = state.board[row][col]
+                .map(|p| piece_unicode(p, state.use_solid_unicode))
+                .unwrap_or(" ");
+
+            let label_piece = label(label_text)
+                .text_size(96.0)
+                .font(FontStack::Source("Noto Sans Symbols 2".into()))
+                .color(Color::BLACK);
+
+            let cell = button(label_piece, move |s: &mut AppState| {
+                let clicked = (row, col);
+
+                match s.selected {
+                    None => {
+                        // First click: select a piece and show its legal moves.
+                        if s.board[row][col].is_some() {
+                            s.selected = Some(clicked);
+                            s.pending_move = None;
+                            s.square_tags = [0; 64];
+
+                            for m in engine::tag(
+                                &mut s.game.lock().unwrap(),
+                                idx as i64,
+                            ) {
+                                s.square_tags[m.di as usize] = 1;
+                            }
+                            s.square_tags[idx] = -1;
+                            s.phase = Phase::Ready;
+                        }
+                    }
+                    Some(prev) if prev != clicked => {
+                        // Second click: attempt a move.
+                        let from_idx = prev.0 * BOARD_SIZE + prev.1;
+                        s.pending_move = Some((from_idx, idx));
+                        s.selected = None;
+                        s.phase = Phase::MoveAttempt;
+                    }
+                    Some(_) => {
+                        // Second click on same square: deselect.
+                        s.selected = None;
+                        s.pending_move = None;
+                        s.square_tags = [0; 64];
+                    }
+                }
+            })
+            .padding(0.0)
+            .background_color(color)
+            .corner_radius(0.0)
+            .grid_pos(draw_col as i32, draw_row as i32);
+
+            cells.push(cell);
+        }
+    }
+
+    grid(cells, BOARD_SIZE as i32, BOARD_SIZE as i32)
+}
+
+fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+    let movelist_text = state.movelist_text();
+
+    flex_col((
         FlexSpacer::Fixed(GAP),
-        label_bar,
-        //lens(time_control_slider, |s: &mut AppState| &mut s.time_per_move),
-        label(format!("{:.2} Sec/move", state.time_per_move)),
+        label(&*state.status),
+        FlexSpacer::Fixed(TINY_GAP),
+        label(format!(
+            "White: {}",
+            AppState::formatted_clock(state.time_elapsed[0])
+        )),
+        label(format!(
+            "Black: {}",
+            AppState::formatted_clock(state.time_elapsed[1])
+        )),
+        FlexSpacer::Fixed(TINY_GAP),
+        label(format!("{:.2} sec/move", state.time_per_move)),
         slider(
             0.1,
             5.0,
@@ -184,27 +450,36 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             "Engine plays white",
             state.engine_plays_white,
             |s: &mut AppState, _| {
-                s.engine_plays_white ^= true;
-                s.players[0] = BOOL_TO_ENGINE[s.engine_plays_white as usize];
-                s.state = STATE_UZ;
+                s.engine_plays_white = !s.engine_plays_white;
+                s.players[0] =
+                    PLAYER_FOR_ENGINE_FLAG[s.engine_plays_white as usize];
+                s.phase = Phase::Uninitialized;
             },
         ),
         checkbox(
             "Engine plays black",
             state.engine_plays_black,
             |s: &mut AppState, _| {
-                s.engine_plays_black ^= true;
-                s.players[1] = BOOL_TO_ENGINE[s.engine_plays_black as usize];
-                s.state = STATE_UZ;
+                s.engine_plays_black = !s.engine_plays_black;
+                s.players[1] =
+                    PLAYER_FOR_ENGINE_FLAG[s.engine_plays_black as usize];
+                s.phase = Phase::Uninitialized;
             },
         ),
-        text_button("Rotate", |s: &mut AppState| s.rotated ^= true),
+        text_button("Rotate", |s: &mut AppState| {
+            s.rotated = !s.rotated;
+        }),
         text_button("New game", |s: &mut AppState| {
             if let Ok(mut game) = s.game.lock() {
                 engine::reset_game(&mut game);
                 s.board = engine_to_board(engine::get_board(&game));
-                s.tagged = [0; 64];
-                s.state = STATE_UZ;
+                s.square_tags = [0; 64];
+                s.selected = None;
+                s.pending_move = None;
+                s.rx = None;
+                s.phase = Phase::Uninitialized;
+                s.time_elapsed = [0.0, 0.0];
+                s.movelist.clear();
             }
         }),
         text_button("Print movelist", |s: &mut AppState| {
@@ -212,187 +487,43 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 engine::print_move_list(&game);
             }
         }),
+        sized_box(prose(movelist_text)).width(200.px()),
         FlexSpacer::Fixed(GAP),
     ))
     .cross_axis_alignment(CrossAxisAlignment::Start)
-    .gap(GAP);
+    .gap(GAP)
+}
 
-    let board_grid = {
-        let mut cells = vec![];
-        for row in 0..8 {
-            for col in 0..8 {
-                let (draw_row, draw_col) = if state.rotated {
-                    (row, col)
-                } else {
-                    (7 - row, 7 - col)
-                };
-                let idx = row * 8 + col;
-                let shade = match state.tagged[idx] {
-                    2 => 25,
-                    1 => 50,
-                    _ => 0,
-                };
-                let color = if (row + col) % 2 == 0 {
-                    Color::from_rgb8(255, 255, 255 - shade)
-                } else {
-                    Color::from_rgb8(205, 205, 205 - shade)
-                };
-                let label_piece = state.board[row][col]
-                    .map(|p| {
-                        label(piece_unicode(p, state.use_solid_unicode))
-                            .text_alignment(TextAlign::Center)
-                            .text_size(96.0)
-                            //.color(palette::css::MEDIUM_VIOLET_RED)
-                            .font(FontStack::Source("Noto Sans Symbols 2".into()))
-                            .color(Color::BLACK)
-                    })
-                    .unwrap_or_else(|| label(" ").text_size(96.0).color(Color::BLACK));
-
-                let cell = sized_box(
-                    button(label_piece, move |s: &mut AppState| {
-                        let clicked = (row, col);
-                        let idx = row * 8 + col;
-                        match s.selected {
-                            None => {
-                                if s.board[row][col].is_some() {
-                                    s.p0 = idx as i32;
-                                    s.selected = Some(clicked);
-                                    s.tagged = [0; 64];
-                                    for m in engine::tag(&mut s.game.lock().unwrap(), idx as i64) {
-                                        s.tagged[m.di as usize] = 1;
-                                    }
-                                    s.tagged[idx] = -1;
-                                    s.state = STATE_READY;
-                                }
-                            }
-                            Some(prev) => {
-                                if prev != clicked {
-                                    s.p1 = idx as i32;
-                                    s.selected = None;
-                                    s.state = STATE_MOVE_ATTEMPT;
-                                } else {
-                                    s.selected = None;
-                                    s.tagged = [0; 64];
-                                }
-                            }
-                        }
-                    })
-                    .background_color(color)
-                    .corner_radius(0.0),
-                )
-                .expand()
-                .grid_pos(draw_col as i32, draw_row as i32);
-                cells.push(cell);
-            }
-        }
-        grid(cells, 8, 8)
-    };
-
-    let full_layout = flex_row((
+fn main_layout(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+    flex_row((
         FlexSpacer::Fixed(GAP),
-        settings_panel,
+        settings_panel(state),
         flex_col((
             FlexSpacer::Fixed(GAP),
-            board_grid.flex(1.0),
+            board_grid(state).flex(1.0),
             FlexSpacer::Fixed(GAP),
         ))
         .flex(1.0),
         FlexSpacer::Fixed(GAP),
     ))
     .cross_axis_alignment(CrossAxisAlignment::Start)
-    .gap(GAP);
+    .gap(GAP)
+}
+
+fn app_logic(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
     fork(
-        full_layout,
+        main_layout(state),
         state.active.then(|| {
             task(
                 |proxy| async move {
-                    let mut interval = time::interval(Duration::from_millis(100));
+                    let mut interval =
+                        time::interval(Duration::from_millis(TIMER_TICK_MS));
                     while proxy.message(()).is_ok() {
                         interval.tick().await;
                     }
                 },
                 |s: &mut AppState, _| {
-                    if let Ok(game) = s.game.try_lock() {
-                        s.board = engine_to_board(engine::get_board(&game));
-                    }
-
-                    match s.state {
-                        STATE_UZ => {
-                            let turn = s.game.lock().unwrap().move_counter as usize % 2;
-                            s.state = BOOL_TO_STATE[s.players[turn] as usize];
-                        }
-                        STATE_MOVE_ATTEMPT if s.p1 >= 0 => {
-                            let (from, to) = (s.p0 as i8, s.p1 as i8);
-                            let valid = engine::move_is_valid2(
-                                &mut s.game.lock().unwrap(),
-                                from as i64,
-                                to as i64,
-                            );
-                            s.tagged = [0; 64];
-                            if from == to || !valid {
-                                s.msg = "Invalid move.".into();
-                            } else {
-                                let flag =
-                                    engine::do_move(&mut s.game.lock().unwrap(), from, to, false);
-                                s.msg =
-                                    engine::move_to_str(&s.game.lock().unwrap(), from, to, flag);
-                                s.tagged[from as usize] = 2;
-                                s.tagged[to as usize] = 2;
-                            }
-                            s.state = STATE_UZ;
-                        }
-                        STATE_ENGINE_THINKING => {
-                            s.state = STATE_ENGINE_PLAYING;
-                            if let Ok(mut game) = s.game.try_lock() {
-                                game.secs_per_move = s.time_per_move as f32;
-                            }
-                            let (tx, rx) = mpsc::channel();
-                            s.rx = Some(rx);
-                            let game_clone = Arc::clone(&s.game);
-                            thread::spawn(move || {
-                                let chess_move = engine::reply(&mut game_clone.lock().unwrap());
-                                let _ = tx.send(chess_move);
-                            });
-                        }
-                        STATE_ENGINE_PLAYING => {
-                            if let Some(rx) = &s.rx {
-                                if let Ok(mv) = rx.try_recv() {
-                                    let mut game = s.game.lock().unwrap();
-                                    s.tagged = [0; 64];
-                                    s.tagged[mv.src as usize] = 2;
-                                    s.tagged[mv.dst as usize] = 2;
-                                    let flag = engine::do_move(
-                                        &mut game,
-                                        mv.src as i8,
-                                        mv.dst as i8,
-                                        false,
-                                    );
-                                    s.msg = engine::move_to_str(
-                                        &game,
-                                        mv.src as i8,
-                                        mv.dst as i8,
-                                        flag,
-                                    ) + &format!(" (scr: {})", mv.score);
-
-                                    s.rx = None;
-                                    s.state = match mv.state {
-                                        engine::STATE_CHECKMATE => {
-                                            s.msg = "Checkmate, game terminated!".into();
-                                            STATE_UX
-                                        }
-                                        _ if mv.score.abs() > engine::KING_VALUE_DIV_2 as i64 => {
-                                            let turns = mv.checkmate_in / 2
-                                                + if mv.score > 0 { -1 } else { 1 };
-                                            s.msg.push_str(&format!(" Checkmate in {}", turns));
-                                            STATE_UZ
-                                        }
-                                        _ => STATE_UZ,
-                                    };
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
+                    s.tick();
                 },
             )
         }),
@@ -421,12 +552,3 @@ fn main() -> Result<(), EventLoopError> {
     run(EventLoop::with_user_event())
 }
 
-#[cfg(target_os = "android")]
-#[expect(unsafe_code)]
-#[no_mangle]
-unsafe fn android_main(app: winit::platform::android::activity::AndroidApp) {
-    use winit::platform::android::EventLoopBuilderExtAndroid;
-    let mut event_loop = EventLoop::with_user_event();
-    event_loop.with_android_app(app);
-    run(event_loop).expect("Cannot create app");
-}
