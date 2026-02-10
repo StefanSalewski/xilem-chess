@@ -1,5 +1,5 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.5 -- 25-NOV-2025
+// v0.5 -- 10-FEB-2026
 // (C) 2015 - 2032 Dr. Stefan Salweski
 
 use std::{
@@ -8,8 +8,10 @@ use std::{
     time::Duration,
 };
 
-use masonry::properties::types::AsUnit;
-use masonry::properties::types::Length;
+//use masonry::properties::types::AsUnit;
+use masonry::layout::AsUnit;
+//use masonry::properties::types::Length;
+use masonry::layout::Length;
 use masonry::{dpi::LogicalSize, parley::FontStack};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
@@ -487,7 +489,7 @@ fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use
                 engine::print_move_list(&game);
             }
         }),
-        sized_box(prose(movelist_text)).width(200.px()),
+        sized_box(prose(movelist_text)).width(200_i32.px()),
         FlexSpacer::Fixed(GAP),
     ))
     .cross_axis_alignment(CrossAxisAlignment::Start)
@@ -515,7 +517,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
         main_layout(state),
         state.active.then(|| {
             task(
-                |proxy| async move {
+                |proxy, _| async move {
                     let mut interval =
                         time::interval(Duration::from_millis(TIMER_TICK_MS));
                     while proxy.message(()).is_ok() {

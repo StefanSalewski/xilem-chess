@@ -8,10 +8,15 @@ num-traits = "0.2.19"
 tokio = "1.48.0"
 winit = "0.30.12"
 
-xilem   = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
-xilem_core = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
-masonry = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
-masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
+#xilem   = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
+#xilem_core = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
+#masonry = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
+#masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
+
+xilem   = { git = "https://github.com/linebender/xilem.git"}
+xilem_core = { git = "https://github.com/linebender/xilem.git"}
+masonry = { git = "https://github.com/linebender/xilem.git"}
+masonry_winit = { git = "https://github.com/linebender/xilem.git"}
 
 [profile.dev]
 opt-level = 3
