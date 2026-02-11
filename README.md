@@ -49,7 +49,13 @@ Chess pieces are drawn using Unicode symbols. Most systems already have suitable
 ```bash
 git clone https://github.com/stefansalewski/xilem-chess.git
 cd xilem-chess
-RUST_LOG=off cargo run
+cargo run --release
+```
+
+You can install the game like other Rust tools with
+
+```bash
+cargo install --path .
 ```
 
 When launched, the left panel provides game controls; the right displays the interactive board.
@@ -107,6 +113,8 @@ Debug mode:
 ```bash
 RUST_LOG=debug cargo run
 ```
+
+The GUI uses currently always the latest Xilem version from GitHub, so from time to time tiny code changes might be required.
 
 ---
 

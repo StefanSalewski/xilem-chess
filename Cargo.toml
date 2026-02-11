@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 num-traits = "0.2.19"
-tokio = "1.48.0"
+tokio = "1.49.0"
 winit = "0.30.12"
 
 #xilem   = { git = "https://github.com/linebender/xilem.git", rev = "c2ab850c2cdd99f8fdb6e43c9835c752e3033b42" }
@@ -19,7 +19,17 @@ masonry = { git = "https://github.com/linebender/xilem.git"}
 masonry_winit = { git = "https://github.com/linebender/xilem.git"}
 
 [profile.dev]
-opt-level = 3
+opt-level = 2
+
+[profile.release]
+codegen-units = 1
+debug-assertions = true # 20% performance gain
+strip = true  # Automatically strip symbols from the binary.
+lto = false
+panic = "abort"
+
+[profile.release.package."*"]
+debug-assertions = false
 
 [features]
 salewskiChessDebug = []
