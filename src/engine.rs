@@ -1,7 +1,7 @@
 // cargo clippy -- -A clippy::collapsible_if -A unreachable_code -A dead_code -A clippy::upper_case_acronyms -A clippy::out_of_bounds_indexing -A clippy::overly_complex_bool_expr -A clippy::too_many_arguments -A clippy::assertions_on_constants
 //
 // The Salewski Chess Engine -- ported from Nim to Rust as a tiny excercise while learning the Rust language
-// v 0.5.0 -- 20-JUL-2025
+// v 0.6.0 -- 19-FEB-2026
 // (C) 2015 - 2032 Dr. Stefan Salewski
 // All rights reserved.
 //
@@ -490,6 +490,22 @@ pub const KING_VALUE_DIV_2: i16 = KING_VALUE / 2;
 pub const SURE_CHECKMATE: i16 = KING_VALUE / 2; // still more than the summed value of all other pieces, but less than value of a king
 
 const FIGURE_VALUE: [i16; KING_ID as usize + 1] = [
+    VOID_VALUE,
+    PAWN_VALUE,
+    KNIGHT_VALUE,
+    BISHOP_VALUE,
+    ROOK_VALUE,
+    QUEEN_VALUE,
+    KING_VALUE,
+];
+
+const FIGURE_VALUE_NEX: [i16; 2 * KING_ID as usize + 1] = [
+    KING_VALUE,
+    QUEEN_VALUE,
+    ROOK_VALUE,
+    BISHOP_VALUE,
+    KNIGHT_VALUE,
+    PAWN_VALUE,
     VOID_VALUE,
     PAWN_VALUE,
     KNIGHT_VALUE,
@@ -1350,14 +1366,20 @@ fn plain_evaluate_board(g: &Game) -> i64 {
     let mut a = [0; 13];
     let mut result: i64 = 0;
     for (p, f) in g.board.iter().enumerate() {
-        a[(6 + *f) as usize] += 1;
-        result += (FIGURE_VALUE[f.unsigned_abs() as usize] + g.freedom[(6 + *f) as usize][p])
-            as i64
-            * signum(*f as i64);
+        if *f != 0 {
+            let idx = (*f + 6) as usize;
+            a[idx] += 1;
+            let mut h = (FIGURE_VALUE_NEX[idx] + g.freedom[idx][p]) as i64;
+            //* signum(*f as i64);
+            if *f < 0 {
+                h = -h;
+            }
+            result += h;
+        }
     }
 
     // it is good to have a pair of knight, bishop, rook, and to have a few pawns left. New for v 0.3!
-    for i in &a[7..13] {
+    for i in &a[7..11] {
         // while pieces
         if *i > 1 {
             result += 10
@@ -1366,10 +1388,10 @@ fn plain_evaluate_board(g: &Game) -> i64 {
     if a[7] == 0 {
         // white pawns
         result -= 50;
-    } else if a[7] == 1 {
-        result -= 10;
+        //} else if a[7] == 1 {
+        //    result -= 10;
     }
-    for i in &a[0..6] {
+    for i in &a[2..6] {
         // black pieces
         if *i > 1 {
             result -= 10
@@ -1377,9 +1399,9 @@ fn plain_evaluate_board(g: &Game) -> i64 {
     }
     if a[5] == 0 {
         // black pawns
-        result -= 50;
-    } else if a[5] == 1 {
-        result -= 10;
+        result += 50;
+        //} else if a[5] == 1 {
+        //    result += 10;
     }
 
     if g.has_moved.contains(WK3) {
@@ -2713,3 +2735,4 @@ when false:
 
 */
 // 2715 lines 343 as
+// #e2e4 2.12s
