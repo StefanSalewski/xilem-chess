@@ -1,9 +1,9 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.5 -- 10-FEB-2026
+// v0.5 -- 02-MAR-2026
 // (C) 2015 - 2032 Dr. Stefan Salweski
 
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::Duration,
 };
@@ -18,14 +18,14 @@ use tokio::time;
 use winit::error::EventLoopError;
 use xilem::view::CrossAxisAlignment;
 use xilem::{
+    Blob, Color, WidgetView, WindowOptions, Xilem,
     core::fork,
     view::{
-        button, checkbox, flex_col, flex_row, grid, label, prose, sized_box, slider, task,
-        text_button, FlexExt, FlexSpacer, GridExt,
+        FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, prose,
+        sized_box, slider, task, text_button,
     },
-    Blob, Color, WidgetView, WindowOptions, Xilem,
 };
-use xilem_core::Edit;
+//use xilem_core::Edit;
 use xilem::style::Style;
 
 mod engine;
@@ -302,14 +302,8 @@ impl AppState {
                         self.square_tags[mv.src as usize] = 2;
                         self.square_tags[mv.dst as usize] = 2;
 
-                        let flag =
-                            engine::do_move(&mut game, mv.src as i8, mv.dst as i8, false);
-                        let notation = engine::move_to_str(
-                            &game,
-                            mv.src as i8,
-                            mv.dst as i8,
-                            flag,
-                        );
+                        let flag = engine::do_move(&mut game, mv.src as i8, mv.dst as i8, false);
+                        let notation = engine::move_to_str(&game, mv.src as i8, mv.dst as i8, flag);
 
                         self.movelist.push(notation.clone());
                         self.status = format!("{notation} (scr: {})", mv.score);
@@ -317,17 +311,12 @@ impl AppState {
                         self.rx = None;
                         self.phase = match mv.state {
                             engine::STATE_CHECKMATE => {
-                                self.status =
-                                    "Checkmate, game terminated!".into();
+                                self.status = "Checkmate, game terminated!".into();
                                 Phase::Inactive
                             }
-                            _ if mv.score.abs()
-                                > engine::KING_VALUE_DIV_2 as i64 =>
-                            {
-                                let turns = mv.checkmate_in / 2
-                                    + if mv.score > 0 { -1 } else { 1 };
-                                self.status
-                                    .push_str(&format!(" Checkmate in {}", turns));
+                            _ if mv.score.abs() > engine::KING_VALUE_DIV_2 as i64 => {
+                                let turns = mv.checkmate_in / 2 + if mv.score > 0 { -1 } else { 1 };
+                                self.status.push_str(&format!(" Checkmate in {}", turns));
                                 Phase::Uninitialized
                             }
                             _ => Phase::Uninitialized,
@@ -341,7 +330,7 @@ impl AppState {
     }
 }
 
-fn board_grid(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let mut cells = Vec::with_capacity(BOARD_SIZE * BOARD_SIZE);
 
     for row in 0..BOARD_SIZE {
@@ -371,7 +360,7 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
                 .unwrap_or(" ");
 
             let label_piece = label(label_text)
-                .text_size(96.0)
+                .text_size(64.0)
                 .font(FontStack::Source("Noto Sans Symbols 2".into()))
                 .color(Color::BLACK);
 
@@ -386,10 +375,7 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
                             s.pending_move = None;
                             s.square_tags = [0; 64];
 
-                            for m in engine::tag(
-                                &mut s.game.lock().unwrap(),
-                                idx as i64,
-                            ) {
+                            for m in engine::tag(&mut s.game.lock().unwrap(), idx as i64) {
                                 s.square_tags[m.di as usize] = 1;
                             }
                             s.square_tags[idx] = -1;
@@ -423,7 +409,7 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
     grid(cells, BOARD_SIZE as i32, BOARD_SIZE as i32)
 }
 
-fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+fn settings_panel(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let movelist_text = state.movelist_text();
 
     flex_col((
@@ -453,8 +439,7 @@ fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use
             state.engine_plays_white,
             |s: &mut AppState, _| {
                 s.engine_plays_white = !s.engine_plays_white;
-                s.players[0] =
-                    PLAYER_FOR_ENGINE_FLAG[s.engine_plays_white as usize];
+                s.players[0] = PLAYER_FOR_ENGINE_FLAG[s.engine_plays_white as usize];
                 s.phase = Phase::Uninitialized;
             },
         ),
@@ -463,8 +448,7 @@ fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use
             state.engine_plays_black,
             |s: &mut AppState, _| {
                 s.engine_plays_black = !s.engine_plays_black;
-                s.players[1] =
-                    PLAYER_FOR_ENGINE_FLAG[s.engine_plays_black as usize];
+                s.players[1] = PLAYER_FOR_ENGINE_FLAG[s.engine_plays_black as usize];
                 s.phase = Phase::Uninitialized;
             },
         ),
@@ -496,7 +480,7 @@ fn settings_panel(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use
     .gap(GAP)
 }
 
-fn main_layout(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+fn main_layout(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     flex_row((
         FlexSpacer::Fixed(GAP),
         settings_panel(state),
@@ -512,14 +496,13 @@ fn main_layout(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> 
     .gap(GAP)
 }
 
-fn app_logic(state: &mut AppState) -> impl WidgetView<Edit<AppState>> + use<> {
+fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     fork(
         main_layout(state),
         state.active.then(|| {
             task(
                 |proxy, _| async move {
-                    let mut interval =
-                        time::interval(Duration::from_millis(TIMER_TICK_MS));
+                    let mut interval = time::interval(Duration::from_millis(TIMER_TICK_MS));
                     while proxy.message(()).is_ok() {
                         interval.tick().await;
                     }
@@ -553,4 +536,3 @@ fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
 fn main() -> Result<(), EventLoopError> {
     run(EventLoop::with_user_event())
 }
-
