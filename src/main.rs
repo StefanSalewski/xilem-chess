@@ -1,5 +1,5 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.5 -- 02-MAR-2026
+// v0.5 -- 11-MAR-2026
 // (C) 2015 - 2032 Dr. Stefan Salweski
 
 use std::{
@@ -27,6 +27,7 @@ use xilem::{
 };
 //use xilem_core::Edit;
 use xilem::style::Style;
+use masonry::parley::style::LineHeight::FontSizeRelative;
 
 mod engine;
 
@@ -360,8 +361,9 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 .unwrap_or(" ");
 
             let label_piece = label(label_text)
-                .text_size(64.0)
+                .text_size(96.0)
                 .font(FontStack::Source("Noto Sans Symbols 2".into()))
+                .line_height(FontSizeRelative(1.1)) // needed for latest Xilem
                 .color(Color::BLACK);
 
             let cell = button(label_piece, move |s: &mut AppState| {
