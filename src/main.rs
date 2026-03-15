@@ -12,13 +12,17 @@ use std::{
 use masonry::layout::AsUnit;
 //use masonry::properties::types::Length;
 use masonry::layout::Length;
-use masonry::{dpi::LogicalSize, parley::FontStack};
+#[cfg(not(feature = "useSystemFont"))]
+use masonry::parley::FontStack;
+use masonry::{dpi::LogicalSize};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
 use xilem::view::CrossAxisAlignment;
+#[cfg(not(feature = "useSystemFont"))]
+use xilem::Blob;
 use xilem::{
-    Blob, Color, WidgetView, WindowOptions, Xilem,
+    Color, WidgetView, WindowOptions, Xilem,
     core::fork,
     view::{
         FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, prose,
@@ -26,8 +30,8 @@ use xilem::{
     },
 };
 //use xilem_core::Edit;
-use xilem::style::Style;
 use masonry::parley::style::LineHeight::FontSizeRelative;
+use xilem::style::Style;
 
 mod engine;
 
@@ -360,9 +364,10 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 .map(|p| piece_unicode(p, state.use_solid_unicode))
                 .unwrap_or(" ");
 
-            let label_piece = label(label_text)
-                .text_size(96.0)
-                .font(FontStack::Source("Noto Sans Symbols 2".into()))
+            let base = label(label_text).text_size(96.0);
+            #[cfg(not(feature = "useSystemFont"))]
+            let base = base.font(FontStack::Source("Noto Sans Symbols 2".into()));
+            let label_piece = base
                 .line_height(FontSizeRelative(1.1)) // needed for latest Xilem
                 .color(Color::BLACK);
 
@@ -517,6 +522,7 @@ fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     )
 }
 
+#[cfg(not(feature = "useSystemFont"))]
 const NOTO_SANS_SYMBOLS: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/resources/fonts/noto_sans_symbols_2/",
@@ -530,8 +536,9 @@ fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
         WindowOptions::new("Xilem Chess GUI")
             .with_min_inner_size(LogicalSize::new(800.0, 800.0))
             .with_initial_inner_size(LogicalSize::new(1200.0, 1000.0)),
-    )
-    .with_font(Blob::new(Arc::new(NOTO_SANS_SYMBOLS)));
+    );
+    #[cfg(not(feature = "useSystemFont"))]
+    let app = app.with_font(Blob::new(Arc::new(NOTO_SANS_SYMBOLS)));
     app.run_in(event_loop)
 }
 

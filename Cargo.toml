@@ -1,12 +1,12 @@
 [package]
 name = "xilem-chess"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 
 [dependencies]
 num-traits = "0.2.19"
-tokio = "1.49.0"
-winit = "0.30.12"
+tokio = "1.50.0"
+winit = "0.30.13"
 
 #xilem   = { git = "https://github.com/linebender/xilem.git", rev = "5281ffb308732b00f42e0755c6095b6ae234ae16" }
 #xilem_core = { git = "https://github.com/linebender/xilem.git", rev = "5281ffb308732b00f42e0755c6095b6ae234ae16" }
@@ -30,4 +30,4 @@ panic = "abort"
 
 [features]
 salewskiChessDebug = []
-
+useSystemFont = []

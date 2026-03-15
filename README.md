@@ -40,7 +40,7 @@ It connects to the compact “Salewski chess engine” and displays a clean, res
 * [masonry](https://github.com/linebender/xilem/tree/main/masonry) for layout
 * `tokio`, `num-traits`, `winit` for async and platform integration
 
-Chess pieces are drawn using Unicode symbols. Most systems already have suitable fonts, but the Google font **Noto Sans Symbols** is bundled and used by default (under Google’s copyright). A future update may allow switching to system fonts.
+Chess pieces are drawn using Unicode symbols. Most systems already have suitable fonts, but the Google font **Noto Sans Symbols** is bundled and used by default (under Google’s copyright).
 
 ---
 
@@ -52,10 +52,13 @@ cd xilem-chess
 cargo run --release
 ```
 
+When you have a system font with chess pieces support, you can use `features=useSystemFont` to use it instead of the bundled Noto font.
+
 You can install the game like other Rust tools with
 
 ```bash
 cargo install --path .
+# or cargo install --features=useSystemFont --path .
 ```
 
 When launched, the left panel provides game controls; the right displays the interactive board.
