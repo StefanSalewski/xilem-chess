@@ -11,16 +11,14 @@ use std::{
 //use masonry::properties::types::AsUnit;
 use masonry::layout::AsUnit;
 //use masonry::properties::types::Length;
+use masonry::dpi::LogicalSize;
 use masonry::layout::Length;
-#[cfg(not(feature = "useSystemFont"))]
-use masonry::parley::FontStack;
-use masonry::{dpi::LogicalSize};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
 use winit::error::EventLoopError;
-use xilem::view::CrossAxisAlignment;
 #[cfg(not(feature = "useSystemFont"))]
 use xilem::Blob;
+use xilem::view::CrossAxisAlignment;
 use xilem::{
     Color, WidgetView, WindowOptions, Xilem,
     core::fork,
@@ -366,7 +364,7 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
             let base = label(label_text).text_size(96.0);
             #[cfg(not(feature = "useSystemFont"))]
-            let base = base.font(FontStack::Source("Noto Sans Symbols 2".into()));
+            let base = base.font("Noto Sans Symbols 2");
             let label_piece = base
                 .line_height(FontSizeRelative(1.1)) // needed for latest Xilem
                 .color(Color::BLACK);
