@@ -12,8 +12,7 @@ use std::{
 use masonry::layout::AsUnit;
 //use masonry::properties::types::Length;
 use masonry::layout::Length;
-#[cfg(not(feature = "useSystemFont"))]
-//use masonry::parley::FontStyle;
+//#[cfg(not(feature = "useSystemFont"))]
 use masonry::{dpi::LogicalSize};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
