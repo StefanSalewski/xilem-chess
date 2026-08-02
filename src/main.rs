@@ -137,7 +137,7 @@ fn piece_unicode(piece: ColoredPiece, solid: bool) -> &'static str {
         (Rook, Black) => "♜",
         (Bishop, Black) => "♝",
         (Knight, Black) => "♞",
-        (Pawn, Black) => "♟︎",
+        (Pawn, Black) => "♟",
     }
 }
 
