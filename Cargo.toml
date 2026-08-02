@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 num-traits = "0.2.19"
-tokio = "1.50.0"
+tokio = "1.53.1"
 winit = "0.30.13"
 
 #xilem   = { git = "https://github.com/linebender/xilem.git", rev = "5281ffb308732b00f42e0755c6095b6ae234ae16" }

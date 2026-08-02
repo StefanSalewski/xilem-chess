@@ -13,7 +13,7 @@ use masonry::layout::AsUnit;
 //use masonry::properties::types::Length;
 use masonry::layout::Length;
 #[cfg(not(feature = "useSystemFont"))]
-use masonry::parley::FontStack;
+//use masonry::parley::FontStyle;
 use masonry::{dpi::LogicalSize};
 use masonry_winit::app::{EventLoop, EventLoopBuilder};
 use tokio::time;
@@ -366,7 +366,8 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
             let base = label(label_text).text_size(96.0);
             #[cfg(not(feature = "useSystemFont"))]
-            let base = base.font(FontStack::Source("Noto Sans Symbols 2".into()));
+            //let base = base.font(FontStyle::Source("Noto Sans Symbols 2".into()));
+            let base = base.font("Noto Sans Symbols 2");
             let label_piece = base
                 .line_height(FontSizeRelative(1.1)) // needed for latest Xilem
                 .color(Color::BLACK);
@@ -404,9 +405,11 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                     }
                 }
             })
-            .padding(0.0)
+            //.padding(0.0)
+            .padding(Length::const_px(0.0))
             .background_color(color)
-            .corner_radius(0.0)
+            //.corner_radius(0.0)
+            .corner_radius(Length::const_px(0.0))
             .grid_pos(draw_col as i32, draw_row as i32);
 
             cells.push(cell);
