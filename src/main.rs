@@ -1,5 +1,5 @@
 // Xilem GUI for the tiny Salewski chess engine
-// v0.5 -- 11-MAR-2026
+// v0.5 -- 08-AUG-2026
 // (C) 2015 - 2032 Dr. Stefan Salweski
 
 use std::{
@@ -23,7 +23,7 @@ use xilem::Blob;
 use xilem::{
     Color, WidgetView, WindowOptions, Xilem,
     core::fork,
-    view::{
+    view::{GridTrackSize, repeat_tracks,
         FlexExt, FlexSpacer, GridExt, button, checkbox, flex_col, flex_row, grid, label, prose,
         sized_box, slider, task, text_button,
     },
@@ -409,13 +409,15 @@ fn board_grid(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             .background_color(color)
             //.corner_radius(0.0)
             .corner_radius(Length::const_px(0.0))
-            .grid_pos(draw_col as i32, draw_row as i32);
+            .grid_pos(draw_col as u16, draw_row as u16);
 
             cells.push(cell);
         }
     }
 
-    grid(cells, BOARD_SIZE as i32, BOARD_SIZE as i32)
+    grid(cells)//, BOARD_SIZE as i32, BOARD_SIZE as i32)
+        .columns(repeat_tracks(BOARD_SIZE, GridTrackSize::FRACTION))
+    .rows(repeat_tracks(BOARD_SIZE, GridTrackSize::FRACTION))
 }
 
 fn settings_panel(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
